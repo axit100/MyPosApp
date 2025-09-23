@@ -1,0 +1,26 @@
+<svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="200" height="60" rx="8" fill="url(#gradient)"/>
+  
+  <!-- Chef Hat Icon -->
+  <g transform="translate(15, 12)">
+    <path d="M18 36C27.9411 36 36 27.9411 36 18C36 8.05887 27.9411 0 18 0C8.05887 0 0 8.05887 0 18C0 27.9411 8.05887 36 18 36Z" fill="white" opacity="0.9"/>
+    <path d="M18 6C14.6863 6 12 8.68629 12 12V24H24V12C24 8.68629 21.3137 6 18 6Z" fill="#F97316"/>
+    <path d="M12 24H24V30H12V24Z" fill="white"/>
+    <circle cx="15" cy="15" r="1.5" fill="white"/>
+    <circle cx="21" cy="15" r="1.5" fill="white"/>
+    <circle cx="18" cy="18" r="1.5" fill="white"/>
+  </g>
+  
+  <!-- Text -->
+  <text x="60" y="25" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white">Dhabha</text>
+  <text x="60" y="42" font-family="Arial, sans-serif" font-size="12" fill="white" opacity="0.9">POS System</text>
+  
+  <!-- Gradient Definition -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#F97316;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#DC2626;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>
