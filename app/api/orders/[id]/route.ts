@@ -45,6 +45,7 @@ export async function PUT(
         status: body.status ?? order.status,
         notes: body.notes ?? order.notes,
         items: body.items ?? order.items,
+        orderTime: new Date(), // Update orderTime to current time when order is modified
       },
       { new: true, runValidators: true }
     ).lean();
