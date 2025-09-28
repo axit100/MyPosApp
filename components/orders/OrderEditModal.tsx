@@ -1,12 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Plus, Minus, Save, Trash, Filter, Search } from "lucide-react";
 
 type Item = {
-  id: number;
+  id: string;
   name: string;
   price: number;
   icon?: string;
+  mainCategoryId?: string;
 };
 
 type Order = {
@@ -31,17 +32,57 @@ type Props = Readonly<{
   onSave: (updated: Order) => void;  
 }>;
 
-const itemsList: Item[] = [
-  { id: 1, name: "Paneer Tikka", price: 180, icon: "🥘" },
-  { id: 2, name: "Butter Naan", price: 40, icon: "🍞" },
-  { id: 3, name: "Dal Makhani", price: 150, icon: "🥣" },
-  { id: 4, name: "Masala Dosa", price: 120, icon: "🌯" },
-  { id: 5, name: "Veg Biryani", price: 200, icon: "🍚" },
-  { id: 6, name: "Chole Bhature", price: 130, icon: "🍛" },
-  { id: 7, name: "Gulab Jamun", price: 60, icon: "🍮" },
-];
+// Remove static itemsList, use subcategories from DB
+type SubCategoryItem = {
+  id: string;
+  name: string;
+  price: number;
+  icon?: string;
+  mainCategoryId?: string;
+};
 
 export default function OrderEditModal({ order, onClose, onSave }: Props) {
+  // Dynamic categories for filter
+  const [subCategoryItems, setSubCategoryItems] = useState<SubCategoryItem[]>([]);
+  useEffect(() => {
+    async function fetchSubCategoryItems() {
+      try {
+        const res = await fetch('/api/subcategories');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setSubCategoryItems(
+            data.data.map((item: any) => ({
+              id: item._id,
+              name: item.name,
+              price: item.price,
+              icon: item.icon || '🍽️',
+              mainCategoryId: item.mainCategoryId?._id || item.mainCategoryId,
+            }))
+          );
+        }
+      } catch (e) {
+        setSubCategoryItems([]);
+      }
+    }
+    fetchSubCategoryItems();
+  }, []);
+  // ...existing code...
+  // Dynamic categories for filter
+  const [categories, setCategories] = useState<{_id: string, name: string}[]>([]);
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const res = await fetch('/api/categories?status=active');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setCategories(data.data.map((cat: any) => ({ _id: cat._id, name: cat.name })));
+        }
+      } catch (e) {
+        setCategories([]);
+      }
+    }
+    fetchCategories();
+  }, []);
   const [activeTab, setActiveTab] = useState<"items" | "customer">("items");
   // Track edited order and type
   const [editOrder, setEditOrder] = useState<Order>(order);
@@ -52,6 +93,30 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
 
+  // Fetch quick order items from API
+  const [quickOrderItems, setQuickOrderItems] = useState<Item[]>([]);
+  useEffect(() => {
+    async function fetchQuickOrderItems() {
+      try {
+        const res = await fetch('/api/subcategories?showInQuickOrder=true');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          setQuickOrderItems(
+            data.data.map((item: any) => ({
+              id: item._id,
+              name: item.name,
+              price: item.price,
+              icon: item.icon || '🍽️',
+            }))
+          );
+        }
+      } catch (e) {
+        setQuickOrderItems([]);
+      }
+    }
+    fetchQuickOrderItems();
+  }, []);
+
   const totalAmount = editItems.reduce(
     (sum, ei) => {
       const price = ei.item?.price || (ei as any).price || 0;
@@ -61,13 +126,13 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
   );
   const finalAmount = totalAmount - (editOrder.discount || 0);
 
-  // Filter items based on search query and selected category
-  const filteredItems = itemsList.filter((item) => {
+  // Filter subcategory items based on search query and selected category
+  const filteredItems = subCategoryItems.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "" || 
-      (selectedCategory === "Starters" && [1, 4].includes(item.id)) ||
-      (selectedCategory === "Desserts" && [7].includes(item.id)) ||
-      (selectedCategory === "Others" && ![1, 4, 7].includes(item.id));
+    let matchesCategory = true;
+    if (selectedCategory) {
+      matchesCategory = item.mainCategoryId === selectedCategory;
+    }
     return matchesSearch && matchesCategory;
   });
 
@@ -152,7 +217,7 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl min-h-[400px] max-h-[90vh] flex flex-col transition-all my-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full  min-h-[400px] max-h-[90vh] flex flex-col transition-all my-auto">
         {/* Header - Fixed */}
         <div className="flex justify-between items-start p-4 md:p-6 pb-3 md:pb-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 bg-white dark:bg-gray-800 rounded-t-xl">
           <div className="flex-1 min-w-0 pr-4">
@@ -201,6 +266,27 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
                 Order Items
               </h3>
 
+                {/* Quick Add Items (showInQuickOrder) */}
+                {quickOrderItems.length > 0 && (
+                  <div className="mb-4">
+                    <div className="font-medium text-gray-700 dark:text-gray-300 mb-2">Quick Add</div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 overflow-auto max-h-40 pb-2" style={{ WebkitOverflowScrolling: 'touch' }}>
+                      {quickOrderItems.map(item => (
+                        <button
+                          key={item.id}
+                          onClick={() => addItem(item)}
+                          className="flex flex-row items-center justify-between bg-gray-100 dark:bg-gray-700 rounded-lg p-2 shadow hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors min-w-[120px] min-h-[48px]"
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <span className=" mr-1 flex-shrink-0">{item.icon}</span>
+                          <span className="font-semibold text-sm md:text-base text-gray-900 dark:text-white flex-1 text-left whitespace-normal break-words">{item.name}</span>
+                          <span className="text-xs text-blue-600 dark:text-blue-400 ml-2 flex-shrink-0">₹{item.price}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               {/* Quick Add */}
               <div className="mb-4 flex justify-between items-center">
                 <span className="font-medium text-gray-700 dark:text-gray-300">
@@ -233,7 +319,7 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
                     <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
                       <span className="text-xl md:text-2xl flex-shrink-0">{icon}</span>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm md:text-base truncate">{name}</p>
+                        <p className="font-medium text-sm md:text-base">{name}</p>
                         <p className="text-xs md:text-sm text-gray-500">₹{price}</p>
                       </div>
                     </div>
@@ -270,11 +356,27 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
               </div>
 
               {/* Totals (no inputs) */}
-              <div className="flex flex-col gap-1 text-right text-gray-800 dark:text-gray-200">
-                <p>Total Amount: ₹{totalAmount}</p>
-                <p>Discount: ₹{editOrder.discount || 0}</p>
-                <p className="font-bold">Final Amount: ₹{finalAmount}</p>
-              </div>
+
+                {/* Totals and Discount Input */}
+                <div className="flex flex-col gap-1 text-right text-gray-800 dark:text-gray-200">
+                  <p>Total Amount: ₹{totalAmount}</p>
+                  <div className="flex items-center justify-end gap-2">
+                    <label htmlFor="discount" className="text-sm font-medium">Discount:</label>
+                    <input
+                      id="discount"
+                      type="number"
+                      min={0}
+                      max={totalAmount}
+                      value={editOrder.discount || 0}
+                      onChange={e => {
+                        const val = Math.max(0, Math.min(Number(e.target.value), totalAmount));
+                        setEditOrder({ ...editOrder, discount: val });
+                      }}
+                      className="border rounded px-2 py-1 w-24 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right"
+                    />
+                  </div>
+                  <p className="font-bold">Final Amount: ₹{finalAmount}</p>
+                </div>
 
               {/* Notes moved here */}
               <div className="mt-4">
@@ -471,7 +573,7 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
               />
             </div>
 
-            {/* Filter Options (without Main category) */}
+            {/* Dynamic Category Filter Options */}
             <div className="mb-4 flex gap-2 flex-wrap">
               <button
                 onClick={() => setSelectedCategory("")}
@@ -483,36 +585,19 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
               >
                 All
               </button>
-              <button
-                onClick={() => setSelectedCategory(selectedCategory === "Starters" ? "" : "Starters")}
-                className={`px-3 py-1 border rounded-full text-sm transition-colors ${
-                  selectedCategory === "Starters"
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
-                }`}
-              >
-                Starters
-              </button>
-              <button
-                onClick={() => setSelectedCategory(selectedCategory === "Desserts" ? "" : "Desserts")}
-                className={`px-3 py-1 border rounded-full text-sm transition-colors ${
-                  selectedCategory === "Desserts"
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
-                }`}
-              >
-                Desserts
-              </button>
-              <button
-                onClick={() => setSelectedCategory(selectedCategory === "Others" ? "" : "Others")}
-                className={`px-3 py-1 border rounded-full text-sm transition-colors ${
-                  selectedCategory === "Others"
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
-                }`}
-              >
-                Others
-              </button>
+              {categories.map(cat => (
+                <button
+                  key={cat._id}
+                  onClick={() => setSelectedCategory(selectedCategory === cat._id ? "" : cat._id)}
+                  className={`px-3 py-1 border rounded-full text-sm transition-colors ${
+                    selectedCategory === cat._id
+                      ? "bg-blue-500 text-white border-blue-500"
+                      : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
             </div>
 
             {/* Results count */}
