@@ -14,21 +14,22 @@ type Order = {
   customerName: string;
   customerPhone: string;
   tableNumber: string;
+  orderType: 'Dining' | 'Parcel';
   totalAmount: number;
   discount: number;
   finalAmount: number;
   status: "Paid" | "Pending" | "Waiting";
   paymentStatus: string;
   notes?: string;
-  items: Array<{ item: Item; quantity: number }>;
+  items: Array<{ item?: Item; name?: string; quantity: number; price?: number }>;
   orderTime?: Date;
 };
 
-type Props = {
-  order: Order;
-  onClose: () => void;
-  onSave: (updated: Order) => void;
-};
+type Props = Readonly<{  
+  order: Order;  
+  onClose: () => void;  
+  onSave: (updated: Order) => void;  
+}>;
 
 const itemsList: Item[] = [
   { id: 1, name: "Paneer Tikka", price: 180, icon: "🥘" },
@@ -42,7 +43,9 @@ const itemsList: Item[] = [
 
 export default function OrderEditModal({ order, onClose, onSave }: Props) {
   const [activeTab, setActiveTab] = useState<"items" | "customer">("items");
+  // Track edited order and type
   const [editOrder, setEditOrder] = useState<Order>(order);
+  const [orderType, setOrderType] = useState<'Dining'|'Parcel'>(order.orderType || 'Dining');
   const [editItems, setEditItems] = useState(order.items || []);
   const [showSearchPopup, setShowSearchPopup] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -50,7 +53,10 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
 
   const totalAmount = editItems.reduce(
-    (sum, ei) => sum + ei.item.price * ei.quantity,
+    (sum, ei) => {
+      const price = ei.item?.price || (ei as any).price || 0;
+      return sum + price * ei.quantity;
+    },
     0
   );
   const finalAmount = totalAmount - (editOrder.discount || 0);
@@ -66,7 +72,7 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
   });
 
   const addItem = (item: Item) => {
-    const existingItemIndex = editItems.findIndex(ei => ei.item.id === item.id);
+    const existingItemIndex = editItems.findIndex(ei => ei.item?.id === item.id);
     if (existingItemIndex >= 0) {
       // If item already exists, increase quantity
       updateQuantity(existingItemIndex, 1);
@@ -98,9 +104,6 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
       errors.customerPhone = "Please enter a valid phone number";
     }
     
-    if (!editOrder.tableNumber.trim()) {
-      errors.tableNumber = "Table number is required";
-    }
     
     return errors;
   };
@@ -114,9 +117,29 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
       return;
     }
     
+    // Normalize items to database format
+    const normalizedItems = editItems.map(orderItem => {
+      if (orderItem.item) {
+        // UI format: { item: Item, quantity: number }
+        return {
+          name: orderItem.item.name,
+          quantity: orderItem.quantity,
+          price: orderItem.item.price
+        };
+      } else {
+        // Already in database format: { name: string, quantity: number, price: number }
+        return {
+          name: (orderItem as any).name,
+          quantity: orderItem.quantity,
+          price: (orderItem as any).price
+        };
+      }
+    });
+    
     onSave({
       ...editOrder,
-      items: editItems,
+      orderType,
+      items: normalizedItems,
       totalAmount,
       finalAmount,
     });
@@ -193,16 +216,25 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
 
               {/* Items List */}
               <div className="space-y-3 mb-6 max-h-60 md:max-h-80 overflow-y-auto">
-                {editItems.map(({ item, quantity }, idx) => (
+                {editItems.map((orderItem, idx) => {
+                  const item = orderItem.item;
+                  const name = item?.name || (orderItem as any).name || 'Unknown Item';
+                  const price = item?.price || (orderItem as any).price || 0;
+                  const icon = item?.icon || '🍽️';
+                  const quantity = orderItem.quantity;
+                  // Create a stable unique key based on item properties and position
+                  const uniqueKey = `${name.replace(/\s+/g, '-')}-${price}-${idx}`;
+                  
+                  return (
                   <div
-                    key={`${item.id}-${idx}`}
+                    key={uniqueKey}
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg shadow gap-2"
                   >
                     <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-                      <span className="text-xl md:text-2xl flex-shrink-0">{item.icon}</span>
+                      <span className="text-xl md:text-2xl flex-shrink-0">{icon}</span>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm md:text-base truncate">{item.name}</p>
-                        <p className="text-xs md:text-sm text-gray-500">₹{item.price}</p>
+                        <p className="font-medium text-sm md:text-base truncate">{name}</p>
+                        <p className="text-xs md:text-sm text-gray-500">₹{price}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
@@ -221,7 +253,7 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
                       </button>
                     </div>
                     <span className="w-12 md:w-16 text-right font-semibold text-sm md:text-base flex-shrink-0">
-                      ₹{item.price * quantity}
+                      ₹{price * quantity}
                     </span>
                     <button
                       onClick={() => removeItem(idx)}
@@ -230,7 +262,8 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
                       <Trash className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
                   </div>
-                ))}
+                  );
+                })}
                 {editItems.length === 0 && (
                   <p className="text-gray-400 text-center py-8">No items added</p>
                 )}
@@ -245,9 +278,9 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
 
               {/* Notes moved here */}
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <p className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Notes
-                </label>
+                </p>
                 <textarea
                   value={editOrder.notes || ""}
                   onChange={(e) =>
@@ -262,11 +295,34 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
 
           {activeTab === "customer" && (
             <div className="grid grid-cols-1 gap-4 mb-6">
+              {/* Order Type */}
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Order Type</p>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  className={`px-4 py-2 rounded ${orderType === 'Dining' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+                  onClick={() => {
+                    setOrderType('Dining');
+                    setValidationErrors({});
+                    setEditOrder({...editOrder, orderType: 'Dining', status: 'Pending'});
+                  }}
+                >Dining</button>
+                <button
+                  type="button"
+                  className={`px-4 py-2 rounded ${orderType === 'Parcel' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+                  onClick={() => {
+                    setOrderType('Parcel');
+                    setValidationErrors({});
+                    setEditOrder({...editOrder, orderType: 'Parcel', status: 'Paid'});
+                  }}
+                >Parcel</button>
+              </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label htmlFor="customerName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Customer Name
                 </label>
                 <input
+                  id="customerName"
                   type="text"
                   value={editOrder.customerName}
                   onChange={(e) => {
@@ -289,10 +345,11 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label htmlFor="customerPhone" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Customer Phone
                 </label>
                 <input
+                  id="customerPhone"
                   type="tel"
                   value={editOrder.customerPhone}
                   onChange={(e) => {
@@ -315,10 +372,11 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Table Number *
+                <label htmlFor="tableNumber" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Table Number
                 </label>
                 <input
+                  id="tableNumber"
                   type="text"
                   value={editOrder.tableNumber}
                   onChange={(e) => {
@@ -341,23 +399,23 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Status
-                </label>
-                <select
-                  value={editOrder.status}
-                  onChange={(e) =>
-                    setEditOrder({
-                      ...editOrder,
-                      status: e.target.value as Order["status"],
-                    })
-                  }
-                  className="border border-gray-300 dark:border-gray-600 rounded px-3 py-2 w-full bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="Paid">Paid</option>
-                  <option value="Waiting">Waiting</option>
-                </select>
+                </p>
+                <div className="flex gap-2 mt-1">
+                  {(['Pending','Paid','Waiting'] as Order['status'][]).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`px-3 py-1 rounded-lg font-medium ${
+                        editOrder.status === s
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}
+                      onClick={() => setEditOrder({ ...editOrder, status: s })}
+                    >{s}</button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -416,7 +474,7 @@ export default function OrderEditModal({ order, onClose, onSave }: Props) {
             {/* Filter Options (without Main category) */}
             <div className="mb-4 flex gap-2 flex-wrap">
               <button
-                onClick={() => setSelectedCategory(selectedCategory === "" ? "" : "")}
+                onClick={() => setSelectedCategory("")}
                 className={`px-3 py-1 border rounded-full text-sm transition-colors ${
                   selectedCategory === ""
                     ? "bg-blue-500 text-white border-blue-500"

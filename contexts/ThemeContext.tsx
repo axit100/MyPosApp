@@ -34,55 +34,26 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     const root = document.documentElement
     const body = document.body
+    const isDark = theme === 'dark'
 
-    // Remove existing theme classes
-    root.classList.remove('light', 'dark')
+    root.classList.toggle('dark', isDark)
+    root.classList.toggle('light', !isDark)
+    body.classList.toggle('dark', isDark)
+    body.classList.toggle('light', !isDark)
 
-    // Add new theme class
-    root.classList.add(theme)
-
-    // Force apply styles directly for testing
-    if (theme === 'dark') {
-      body.style.backgroundColor = '#111827'
-      body.style.color = '#f9fafb'
-
-      // Apply dark styles to all white backgrounds
-      const whiteElements = document.querySelectorAll('.bg-white')
-      whiteElements.forEach(el => {
-        (el as HTMLElement).style.backgroundColor = '#374151'
-      })
-
-      // Apply dark styles to all gray backgrounds
-      const grayElements = document.querySelectorAll('.bg-gray-100')
-      grayElements.forEach(el => {
-        (el as HTMLElement).style.backgroundColor = '#111827'
-      })
-
-      // Apply dark text styles
-      const darkTextElements = document.querySelectorAll('.text-gray-900')
-      darkTextElements.forEach(el => {
-        (el as HTMLElement).style.color = '#f9fafb'
-      })
-    } else {
-      // Reset to light mode
-      body.style.backgroundColor = '#f3f4f6'
-      body.style.color = '#111827'
-
-      // Reset all elements
-      const allElements = document.querySelectorAll('[style]')
-      allElements.forEach(el => {
-        if (el !== body) {
-          const element = el as HTMLElement
-          element.style.backgroundColor = ''
-          element.style.color = ''
-        }
-      })
-    }
-
-    // Set color scheme for native elements
     root.style.colorScheme = theme
+    body.dataset.theme = theme
 
-    // Save to localStorage
+    const lightThemeColor = document.querySelector('meta[name="theme-color"][media*="light"]')
+    const darkThemeColor = document.querySelector('meta[name="theme-color"][media*="dark"]')
+
+    const darkColor = '#111827'
+    const lightColor = '#f3f4f6'
+    const targetColor = isDark ? darkColor : lightColor
+
+    if (lightThemeColor) lightThemeColor.setAttribute('content', targetColor)
+    if (darkThemeColor) darkThemeColor.setAttribute('content', targetColor)
+
     localStorage.setItem('theme', theme)
   }, [theme, mounted])
 

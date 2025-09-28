@@ -9,13 +9,13 @@ type NewOrder = {
   tableNumber: string;
 };
 
-type Props = {
-  onClose: () => void;
-  onCreate: (order: any) => void;
-  newOrder: NewOrder;
-  setNewOrder: (order: NewOrder) => void;
-  totalOrders: number;
-};
+type Props = Readonly<{  
+  onClose: () => void;  
+  onCreate: (order: any) => Promise<void>;  
+  newOrder: NewOrder;  
+  setNewOrder: (order: NewOrder) => void;  
+  totalOrders: number;  
+}>;
 
 export default function OrderCreateModal({ 
   onClose, 
@@ -24,19 +24,18 @@ export default function OrderCreateModal({
   setNewOrder, 
   totalOrders 
 }: Props) {
+  // Order type: Dining or Parcel
+  const [orderType, setOrderType] = useState<'Dining' | 'Parcel'>('Dining');
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validateForm = () => {
     const errors: {[key: string]: string} = {};
     
-    if (!newOrder.tableNumber.trim()) {
-      errors.tableNumber = "Table number is required";
-    }
     
     // Validate mobile number format if provided
     if (newOrder.customerPhone.trim()) {
-      const phoneNumber = newOrder.customerPhone.replace(/[\s\-\(\)]/g, ''); // Remove formatting
+  const phoneNumber = newOrder.customerPhone.replace(/[\s()-]/g, ''); // Remove formatting
       
       // Check if it's a valid Indian mobile number (10 digits starting with 6-9)
       if (!/^[6-9]\d{9}$/.test(phoneNumber)) {
@@ -51,7 +50,7 @@ export default function OrderCreateModal({
     e.preventDefault();
     
     const errors = validateForm();
-    setValidationErrors(errors);
+  setValidationErrors(errors);
     
     if (Object.keys(errors).length > 0) {
       return;
@@ -62,10 +61,11 @@ export default function OrderCreateModal({
     try {
       const orderNum = `${totalOrders + 1}-${format(new Date(), "ddMMyyyy")}`;
       await onCreate({ 
-        ...newOrder, 
-        orderNumber: orderNum, 
+        ...newOrder,
+        orderType,
+        orderNumber: orderNum,
         orderTime: new Date(),
-        status: "Pending",
+        status: orderType === 'Parcel' ? 'Paid' : 'Pending',
         items: [],
         discount: 0
       });
@@ -150,6 +150,33 @@ export default function OrderCreateModal({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Order Type Toggle */}
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Order Type</p>
+          <div className="flex gap-4">
+            <button
+              type="button"
+              className={`px-4 py-2 rounded ${orderType === 'Dining' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+              onClick={() => {
+                setOrderType('Dining');
+                setValidationErrors({});
+              }}
+            >
+              Dining
+            </button>
+            <button
+              type="button"
+              className={`px-4 py-2 rounded ${orderType === 'Parcel' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`}
+              onClick={() => {
+                setOrderType('Parcel');
+                setValidationErrors({});
+                // clear table number field for parcel
+                setNewOrder({ ...newOrder, tableNumber: '' });
+              }}
+            >
+              Parcel
+            </button>
+          </div>
+
           {/* Customer Name */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -213,7 +240,7 @@ export default function OrderCreateModal({
               {!validationErrors.customerPhone && newOrder.customerPhone && (
                 <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
                   <span className="w-4 h-4 text-green-500">✓</span>
-                  Valid mobile number
+                  <span>Valid mobile number</span>
                 </p>
               )}
               <p className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
@@ -222,11 +249,13 @@ export default function OrderCreateModal({
             </div>
           </div>
 
+          {orderType === 'Dining' && (
+            <>
           {/* Table Number */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
               <Hash className="w-4 h-4" />
-              Table Number *
+              Table Number
             </label>
             <input
               type="text"
@@ -255,6 +284,8 @@ export default function OrderCreateModal({
               </p>
             </div>
           </div>
+            </>
+          )}
 
           {/* Summary Card */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">

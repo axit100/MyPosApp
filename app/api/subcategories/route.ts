@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const categoryId = searchParams.get('categoryId')
-    const status = searchParams.get('status')
+  const status = searchParams.get('status')
+  const showInQuickOrder = searchParams.get('showInQuickOrder')
 
     let query: any = {}
 
@@ -24,6 +25,9 @@ export async function GET(request: NextRequest) {
 
     if (status) {
       query.status = status
+    }
+    if (showInQuickOrder === 'true') {
+      query.showInQuickOrder = true
     }
 
     const subcategories = await SubCategory.find(query)

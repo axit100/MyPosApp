@@ -75,7 +75,7 @@ export default function QuickOrderPage() {
   const fetchSubcategoryItems = async () => {
     try {
       setItemsLoading(true);
-      const res = await fetch("/api/subcategories?status=active", {
+  const res = await fetch("/api/subcategories?status=active&showInQuickOrder=true", {
         credentials: "include",
       });
       if (!res.ok) {

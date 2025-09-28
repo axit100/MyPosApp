@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
 			customerName: body.customerName ?? "",
 			customerPhone: body.customerPhone ?? "",
 			tableNumber: body.tableNumber ?? "",
+			orderType: body.orderType ?? 'Dining',
 			totalAmount: body.totalAmount ?? 0,
 			discount: body.discount ?? 0,
 			finalAmount: body.finalAmount ?? 0,
@@ -56,6 +57,33 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: error.message }, { status: 401 });
 		}
 		return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
+	}
+}
+// PUT /api/orders - Update an existing order
+export async function PUT(request: NextRequest) {
+	try {
+		await requireAuth(request);
+		await connectDB();
+		const body = await request.json();
+		const { orderNumber, ...updates } = body;
+		if (!orderNumber) {
+			return NextResponse.json({ error: 'Missing orderNumber' }, { status: 400 });
+		}
+		const updatedDoc = await Order.findOneAndUpdate(
+			{ orderNumber },
+			{ $set: updates },
+			{ new: true }
+		).lean();
+		if (!updatedDoc) {
+			return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+		}
+		return NextResponse.json({ order: updatedDoc });
+	} catch (error: any) {
+		console.error('Update order error:', error);
+		if (error?.message === 'Authentication required' || error?.message === 'Insufficient permissions') {
+			return NextResponse.json({ error: error.message }, { status: 401 });
+		}
+		return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
 	}
 }
 import { NextRequest, NextResponse } from 'next/server'
@@ -104,7 +132,9 @@ export async function GET(request: NextRequest) {
 		await connectDB()
 
 		const { searchParams } = new URL(request.url)
-		const dateRange = searchParams.get('dateRange') || 'today'
+			const dateRange = searchParams.get('dateRange') || 'today'
+		  const page = parseInt(searchParams.get('page') || '1', 10)
+		  const limit = parseInt(searchParams.get('limit') || '20', 10)
 		const startParam = searchParams.get('start')
 		const endParam = searchParams.get('end')
 
@@ -112,7 +142,7 @@ export async function GET(request: NextRequest) {
 		let start: Date | undefined
 		let end: Date | undefined
 
-		if (dateRange === 'today') {
+			if (dateRange === 'today') {
 			start = new Date(now)
 			start.setHours(0, 0, 0, 0)
 			end = new Date(now)
@@ -131,17 +161,20 @@ export async function GET(request: NextRequest) {
 			start = new Date(now.getFullYear(), now.getMonth(), 1)
 			end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
 			end.setHours(23, 59, 59, 999)
-		} else if (dateRange === 'custom') {
+			} else if (dateRange === 'yesterday') {
+				// Yesterday
+				const y = new Date(now)
+				y.setDate(y.getDate() - 1)
+				start = new Date(y)
+				start.setHours(0,0,0,0)
+				end = new Date(y)
+				end.setHours(23,59,59,999)
+			} else if (dateRange === 'custom') {
 			if (!startParam || !endParam) {
 				return NextResponse.json({ error: 'start and end are required for custom range' }, { status: 400 })
 			}
 			start = new Date(startParam)
 			end = new Date(endParam)
-			// cap to 1 year max range
-			const maxRangeMs = 365 * 24 * 60 * 60 * 1000
-			if (end.getTime() - start.getTime() > maxRangeMs) {
-				end = new Date(start.getTime() + maxRangeMs)
-			}
 			end.setHours(23, 59, 59, 999)
 		}
 
@@ -150,26 +183,37 @@ export async function GET(request: NextRequest) {
 			filter.orderTime = { $gte: start, $lte: end }
 		}
 
-		const docs = await Order.find(filter).sort({ orderTime: -1 }).lean()
+			const skip = (page - 1) * limit
+			const docs = await Order.find(filter).sort({ orderTime: -1 }).skip(skip).limit(limit).lean()
+			const total = await Order.countDocuments(filter)
 
 		// Map to client shape: keep only fields used by UI
-		const orders = docs.map((o: any) => ({
-			_id: o._id,
-			orderNumber: o.orderNumber,
-			customerName: o.customerName,
-			customerPhone: o.customerPhone,
-			tableNumber: o.tableNumber ?? '',
-			totalAmount: o.totalAmount,
-			discount: o.discount,
-			finalAmount: o.finalAmount,
-			paymentStatus: o.paymentStatus,
-			status: o.status,
-			orderTime: o.orderTime,
-			notes: o.notes ?? '',
-			items: o.items || []
-		}))
+			const orders = docs.map((o: any) => ({
+				_id: o._id,
+				orderNumber: o.orderNumber,
+				customerName: o.customerName,
+				customerPhone: o.customerPhone,
+				tableNumber: o.tableNumber ?? '',
+				orderType: o.orderType ?? 'Dining',
+				totalAmount: o.totalAmount,
+				discount: o.discount,
+				finalAmount: o.finalAmount,
+				paymentStatus: o.paymentStatus,
+				status: o.status,
+				orderTime: o.orderTime,
+				notes: o.notes ?? '',
+				items: o.items || []
+			}));
 
-		return NextResponse.json({ orders })
+			return NextResponse.json({ 
+				orders,
+				pagination: {
+					page,
+					limit,
+					total,
+					hasMore: skip + docs.length < total
+				}
+			})
 	} catch (error: any) {
 		console.error('List orders error:', error)
 		if (error?.message === 'Authentication required' || error?.message === 'Insufficient permissions') {

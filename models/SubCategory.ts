@@ -8,6 +8,7 @@ export interface ISubCategory extends Document {
   description: string
   icon?: string // Custom icon (emoji, URL, or SVG content)
   status: 'active' | 'inactive'
+  showInQuickOrder: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -47,7 +48,11 @@ const SubCategorySchema = new Schema<ISubCategory>({
     type: String,
     enum: ['active', 'inactive'],
     default: 'active'
-  }
+  },
+  showInQuickOrder: {
+    type: Boolean,
+    default: false
+  },
 }, {
   timestamps: true
 })

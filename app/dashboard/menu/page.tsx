@@ -34,6 +34,7 @@ interface SubCategory {
   description: string
   icon?: string
   status: 'active' | 'inactive'
+  showInQuickOrder: boolean
   createdAt: string
   updatedAt: string
 }
@@ -112,9 +113,8 @@ export default function MenuPage() {
   }, [])
 
   useEffect(() => {
-    if (selectedCategoryId) {
-      fetchSubCategories()
-    }
+    // Refetch whenever selectedCategoryId changes (including resetting to '')
+    fetchSubCategories()
   }, [selectedCategoryId])
 
   const fetchCategories = async () => {
@@ -587,23 +587,70 @@ export default function MenuPage() {
                       }`}>
                         {subCategory.status}
                       </span>
-
-                      <button
-                        onClick={() => {
-                          // Toggle status
-                          handleEditSubCategory({
-                            ...subCategory,
-                            status: subCategory.status === 'active' ? 'inactive' : 'active'
-                          })
-                        }}
-                        className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                      >
-                        {subCategory.status === 'active' ? (
-                          <ToggleRight className="w-5 h-5 text-green-500" />
-                        ) : (
-                          <ToggleLeft className="w-5 h-5 text-gray-400" />
-                        )}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Add in Quick Order</span>
+                        <button
+                          onClick={async () => {
+                            // Toggle quick order flag
+                            const newFlag = !subCategory.showInQuickOrder
+                            const res = await fetch(`/api/subcategories/${subCategory._id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ showInQuickOrder: newFlag })
+                            })
+                            if (res.ok) {
+                              setSubCategories(prev =>
+                                prev.map(s =>
+                                  s._id === subCategory._id ? { ...s, showInQuickOrder: newFlag } : s
+                                )
+                              )
+                              setSuccess(
+                                `${subCategory.name} ${newFlag ? 'added to' : 'removed from'} Quick Order`
+                              )
+                              setTimeout(() => setSuccess(''), 3000)
+                            }
+                          }}
+                          className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                          title={subCategory.showInQuickOrder ? 'Remove from Quick Order' : 'Add to Quick Order'}
+                        >
+                          {subCategory.showInQuickOrder ? (
+                            <ToggleRight className="w-5 h-5 text-blue-500" />
+                          ) : (
+                            <ToggleLeft className="w-5 h-5 text-gray-400" />
+                          )}
+                        </button>
+                        {/* Active/Inactive Toggle */}
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Status</span>
+                        <button
+                          onClick={async () => {
+                            const newStatus = subCategory.status === 'active' ? 'inactive' : 'active'
+                            const res = await fetch(`/api/subcategories/${subCategory._id}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ status: newStatus })
+                            })
+                            if (res.ok) {
+                              setSubCategories(prev =>
+                                prev.map(s =>
+                                  s._id === subCategory._id ? { ...s, status: newStatus } : s
+                                )
+                              )
+                              setSuccess(
+                                `${subCategory.name} ${newStatus === 'active' ? 'activated' : 'deactivated'}`
+                              )
+                              setTimeout(() => setSuccess(''), 3000)
+                            }
+                          }}
+                          className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                          title={subCategory.status === 'active' ? 'Deactivate' : 'Activate'}
+                        >
+                          {subCategory.status === 'active' ? (
+                            <ToggleRight className="w-5 h-5 text-green-500" />
+                          ) : (
+                            <ToggleLeft className="w-5 h-5 text-red-500" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

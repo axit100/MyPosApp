@@ -20,10 +20,12 @@ type Item = {
 };
 
 type Order = {
+  _id?: string;
   orderNumber: string;
   customerName: string;
   customerPhone: string;
   tableNumber: string;
+  orderType: 'Dining' | 'Parcel';
   totalAmount: number;
   discount: number;
   finalAmount: number;
@@ -35,45 +37,55 @@ type Order = {
 };
 
 export default function OrdersPage() {
-  type DateRange = "today" | "week" | "month" | "custom";
-  const ranges = ["today", "week", "month", "custom"] as const;
+  type DateRange = "today" | "yesterday" | "week" | "month" | "custom";
+  const ranges = ["today", "yesterday", "week", "month", "custom"] as const;
   const rangeLabels: Record<DateRange, string> = {
     today: "Today",
+    yesterday: "Yesterday",
     week: "This Week",
     month: "This Month",
-    custom: "Custom",
+    custom: "Custom Range",
   };
+
   // 🔹 Filters
   const [dateRange, setDateRange] = useState<DateRange>("today");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
 
+  // 🔹 Pagination state
+  const [page, setPage] = useState(1);
+  const PAGE_LIMIT = 5;
+  const [hasMore, setHasMore] = useState(true);
+
   // 🔹 Orders state (fetched from API)
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>(orders);
-
-  // 🔹 Modal states
+  // 🔹 Create/Edit/Delete modal state
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
-  const [editOrder, setEditOrder] = useState<Order | null>(null);
-  const [deleteOrderNum, setDeleteOrderNum] = useState<string | null>(null);
+  const [editOrder, setEditOrder] = useState<Order|null>(null);
+  const [deleteOrderNum, setDeleteOrderNum] = useState<string|null>(null);
+  // 🔹 New order form state
+  const [newOrder, setNewOrder] = useState<NewOrder>({ customerName: '', customerPhone: '', tableNumber: '' });
 
-  const [newOrder, setNewOrder] = useState<NewOrder>({
-    customerName: "",
-    customerPhone: "",
-    tableNumber: "",
-  });
-
-  // 🔹 Fetch orders from API whenever filters change
+  // Remove max range note
+  // 🔹 Fetch orders from API whenever filters or page change
+  // Reset to first page when filter changes
+  useEffect(() => {
+    setPage(1);
+    setOrders([]);
+  }, [dateRange, customStart, customEnd]);
+  
+  // Fetch orders when page or filters change
   useEffect(() => {
     async function fetchOrders() {
       try {
         setLoading(true);
         setError(null);
         const params = new URLSearchParams({ dateRange });
+        params.set("page", page.toString());
+        params.set("limit", PAGE_LIMIT.toString());
         if (dateRange === "custom" && customStart && customEnd) {
           params.set("start", customStart);
           params.set("end", customEnd);
@@ -81,35 +93,47 @@ export default function OrdersPage() {
         const res = await fetch(`/api/orders?${params.toString()}`, {
           credentials: "include",
         });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "Failed to load orders");
-        }
         const data = await res.json();
-        // Ensure orderTime is Date
+        if (!res.ok) throw new Error(data.error || "Failed to load orders");
         const fetched: Order[] = (data.orders || []).map((o: any) => ({
           ...o,
           orderTime: new Date(o.orderTime),
           items: Array.isArray(o.items) ? o.items : [],
         }));
-        setOrders(fetched);
-        setFilteredOrders(fetched);
+        // On first page, replace; otherwise append
+        setOrders((prev) => (page === 1 ? fetched : [...prev, ...fetched]));
+        setHasMore(data.pagination?.hasMore ?? false);
       } catch (e: any) {
         setError(e.message || "Failed to load orders");
-        setOrders([]);
-        setFilteredOrders([]);
+        setHasMore(false);
       } finally {
         setLoading(false);
       }
     }
-    // Defer fetching for custom range until both dates are set
+    // For custom ranges, fetch if both dates provided
     if (dateRange === "custom" && (!customStart || !customEnd)) {
-      setOrders([]);
-      setFilteredOrders([]);
+      if (page === 1) {
+        setOrders([]);
+      }
       return;
     }
+    // Fetch orders
     fetchOrders();
-  }, [dateRange, customStart, customEnd]);
+  }, [dateRange, customStart, customEnd, page]);
+
+  // Infinite scroll: load more when reaching bottom
+  useEffect(() => {
+    const handleScroll = () => {
+      if (loading || !hasMore) return;
+      const scrollPos = window.innerHeight + window.scrollY;
+      const threshold = document.body.offsetHeight - 200;
+      if (scrollPos >= threshold) {
+        setPage(prev => prev + 1);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [loading, hasMore]);
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
@@ -126,7 +150,11 @@ export default function OrdersPage() {
             </p>
           </div>
           <button
-            onClick={() => setShowCreate(true)}
+            onClick={() => {
+              // reset form fields for new order
+              setNewOrder({ customerName: '', customerPhone: '', tableNumber: '' });
+              setShowCreate(true);
+            }}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow"
           >
             + Create Order
@@ -188,12 +216,14 @@ export default function OrdersPage() {
           </div>
         )}
         {loading && (
-          <div className="mb-4 text-gray-600 dark:text-gray-300">Loading orders…</div>
+          <div className="mb-4 text-gray-600 dark:text-gray-300">
+            Loading orders…
+          </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredOrders.map((order) => (
+          {orders.map((order, index) => (
             <OrderCard
-              key={order.orderNumber}
+              key={`${order.orderNumber}-${order._id || index}`}
               order={order}
               onEdit={() => {
                 setEditOrder(order);
@@ -203,8 +233,16 @@ export default function OrdersPage() {
             />
           ))}
         </div>
-        {!loading && !error && filteredOrders.length === 0 && (
-          <div className="mt-6 text-gray-600 dark:text-gray-300">No orders found for the selected range.</div>
+        {/* Infinite Scroll Loading Indicator */}
+        {loading && hasMore && (
+          <div className="flex justify-center py-4">
+            <div className="w-8 h-8 border-4 border-gray-300 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+        {!loading && !error && orders.length === 0 && (
+          <div className="mt-6 text-gray-600 dark:text-gray-300">
+            No orders found for the selected range.
+          </div>
         )}
       </div>
 
@@ -226,10 +264,16 @@ export default function OrdersPage() {
               });
               const data = await res.json();
               if (!res.ok) throw new Error(data.error || "Failed to create order");
-              // Add created order to state
-              setOrders([data.order, ...orders]);
-              setFilteredOrders([data.order, ...orders]);
+              // Add created order to state and open edit modal
+              const newOrder = { ...data.order, orderTime: new Date(data.order.orderTime) };
+              // Check if order already exists to prevent duplicates
+              setOrders(prevOrders => {
+                const exists = prevOrders.some(o => o.orderNumber === newOrder.orderNumber);
+                return exists ? prevOrders : [newOrder, ...prevOrders];
+              });
               setShowCreate(false);
+              setEditOrder(newOrder);
+              setShowEdit(true);
             } catch (e: any) {
               setError(e.message || "Failed to create order");
             } finally {
@@ -246,14 +290,36 @@ export default function OrdersPage() {
         <OrderEditModal
           order={editOrder}
           onClose={() => setShowEdit(false)}
-          onSave={(updatedOrder) => {
-            const updated = updatedOrder as unknown as Order;
-            setOrders(
-              orders.map((o) =>
-                o.orderNumber === updated.orderNumber ? updated : o
-              )
-            );
-            setShowEdit(false);
+          onSave={async (updatedOrder) => {
+            setLoading(true);
+            setError(null);
+            console.log('Saving order:', updatedOrder);
+            try {
+              const res = await fetch(`/api/orders`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(updatedOrder),
+              });
+              const data = await res.json();
+              console.log('API response:', data);
+              if (!res.ok) throw new Error(data.error || "Failed to update order");
+              const updated: Order = {
+                ...data.order,
+                orderTime: new Date(data.order.orderTime)
+              };
+              setOrders(
+                orders.map((o) =>
+                  o.orderNumber === updated.orderNumber ? updated : o
+                )
+              );
+              setShowEdit(false);
+            } catch (e: any) {
+              console.error('Update error:', e);
+              setError(e.message || "Failed to update order");
+            } finally {
+              setLoading(false);
+            }
           }}
         />
       )}

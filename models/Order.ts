@@ -18,7 +18,8 @@ export interface IOrder extends Document {
   customerPhone: string;
   notes?: string;
   createdBy: mongoose.Types.ObjectId;
-  orderTime: Date;
+    orderTime: Date;
+    orderType: 'Dining' | 'Parcel';
   orderNumber: string;
 }
 
@@ -46,7 +47,8 @@ const OrderSchema = new Schema<IOrder>({
   customerPhone: { type: String },
   notes: { type: String },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  orderTime: { type: Date, required: true },
+    orderTime: { type: Date, required: true },
+    orderType: { type: String, enum: ['Dining', 'Parcel'], default: 'Dining' },
   orderNumber: { type: String, required: true, unique: true },
 }, { timestamps: true });
 
