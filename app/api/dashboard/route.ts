@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/mongodb'
 import Order from '@/models/Order'
+import CashNote from '@/models/CashNote'
+import SubCategory from '@/models/SubCategory'
 import { requireAuth } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -15,28 +17,28 @@ export async function GET(request: NextRequest) {
     
     // Fetch all metrics in parallel for better performance
     const [
-      activeTables,
       todayOrders,
+      todayEarnings,
+      todayDebits,
+      pendingOrders,
+      totalMenuItems
     ] = await Promise.all([
-      // Active Tables (occupied or reserved)
-     
-      // Today's Orders
+      // Today's Orders count
       Order.countDocuments({
-        createdAt: {
+        orderTime: {
           $gte: startOfDay,
           $lt: endOfDay
         }
       }),
       
-      // Today's Earnings (sum of finalAmount for paid orders)
+      // Today's Earnings (sum of finalAmount for all orders)
       Order.aggregate([
         {
           $match: {
-            createdAt: {
+            orderTime: {
               $gte: startOfDay,
               $lt: endOfDay
-            },
-            paymentStatus: 'paid'
+            }
           }
         },
         {
@@ -47,37 +49,64 @@ export async function GET(request: NextRequest) {
         }
       ]),
       
-      // Total Menu Items (available items only)
-    ])
-    
-    // Extract earnings from aggregation result
-    const earnings = 0;
-    
-    // Get additional details for better dashboard insights
-    const [totalTables] = await Promise.all([
+      // Today's Debits (sum of debit amounts)
+      CashNote.aggregate([
+        {
+          $match: {
+            type: 'debit',
+            date: {
+              $gte: startOfDay,
+              $lt: endOfDay
+            }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalDebits: { $sum: '$amount' },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+      
+      // Today's Pending Orders
       Order.countDocuments({
-        status: { $in: ['pending', 'preparing'] },
-        createdAt: {
+        orderTime: {
           $gte: startOfDay,
           $lt: endOfDay
-        }
+        },
+        status: { $in: ['Pending', 'Waiting'] }
+      }),
+      
+      // Total Menu Items (active subcategories)
+      SubCategory.countDocuments({
+        status: 'active'
       })
     ])
+    
+    // Extract earnings and debits from aggregation results
+    const earnings = todayEarnings.length > 0 ? todayEarnings[0].totalEarnings : 0;
+    const debits = todayDebits.length > 0 ? todayDebits[0].totalDebits : 0;
+    const debitCount = todayDebits.length > 0 ? todayDebits[0].count : 0;
     
     return NextResponse.json({
       success: true,
       data: {
-        activeTables: {
-          count: activeTables,
-          total: totalTables,
-          percentage: totalTables > 0 ? Math.round((activeTables / totalTables) * 100) : 0
-        },
         todayOrders: {
           count: todayOrders,
+          pending: pendingOrders
         },
         todayEarnings: {
           amount: earnings,
           formatted: `₹${earnings.toLocaleString('en-IN')}`
+        },
+        todayDebit: {
+          amount: debits,
+          formatted: `₹${debits.toLocaleString('en-IN')}`,
+          count: debitCount
+        },
+        totalMenuItems: {
+          count: totalMenuItems
         }
       },
       timestamp: new Date().toISOString()

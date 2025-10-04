@@ -8,7 +8,7 @@ export async function POST() {
     })
 
     // Clear the authentication cookie
-    response.cookies.set('token', '', {
+    response.cookies.set('auth-token', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

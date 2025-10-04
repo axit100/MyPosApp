@@ -6,8 +6,11 @@ export interface IUser extends Document {
   email: string
   password: string
   role: 'admin' | 'staff' | 'manager'
+  isSuper: boolean
   isActive: boolean
+  phone?: string
   permissions: string[]
+  lastLogin?: Date
   createdAt: Date
   updatedAt: Date
   comparePassword(candidatePassword: string): Promise<boolean>
@@ -39,9 +42,22 @@ const UserSchema = new Schema<IUser>({
     enum: ['admin', 'staff', 'manager'],
     default: 'staff'
   },
+  isSuper: {
+    type: Boolean,
+    default: false,
+    select: false // Don't include in regular queries for security
+  },
   isActive: {
     type: Boolean,
     default: true
+  },
+  phone: {
+    type: String,
+    trim: true,
+    match: [/^\+?[1-9]\d{0,15}$/, 'Please enter a valid phone number']
+  },
+  lastLogin: {
+    type: Date
   },
   permissions: [{
     type: String,
@@ -76,6 +92,15 @@ UserSchema.pre('save', async function(next) {
 UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password)
 }
+
+// Prevent setting isSuper to true (only can be set in database directly)
+UserSchema.pre('save', function(next) {
+  if (this.isModified('isSuper') && this.isSuper === true && this.isNew) {
+    // Only allow isSuper to be set to true if explicitly done (not through API)
+    this.isSuper = false
+  }
+  next()
+})
 
 // Set default permissions based on role
 UserSchema.pre('save', function(next) {

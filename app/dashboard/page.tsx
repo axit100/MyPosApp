@@ -3,24 +3,18 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardHeader from '@/components/DashboardHeader'
+import ProtectedRoute from '@/components/ProtectedRoute'
 import {
-  Users,
   ShoppingCart,
   DollarSign,
   Utensils,
   ChevronRight,
-  Table,
   BarChart3,
   Settings,
   UserCheck
 } from "lucide-react"
 
 interface DashboardData {
-  activeTables: {
-    count: number
-    total: number
-    percentage: number
-  }
   todayOrders: {
     count: number
     pending: number
@@ -28,6 +22,11 @@ interface DashboardData {
   todayEarnings: {
     amount: number
     formatted: string
+  }
+  todayDebit: {
+    amount: number
+    formatted: string
+    count: number
   }
   totalMenuItems: {
     count: number
@@ -134,33 +133,43 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      <DashboardHeader
-        title="Dhabha POS"
-        subtitle="Restaurant Management System"
-        onRefresh={fetchDashboardData}
-      />
+    <ProtectedRoute allowedRoles={['admin', 'manager', 'staff']}>
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+        <DashboardHeader
+          title="Dhabha POS"
+          subtitle="Restaurant Management System"
+          onRefresh={fetchDashboardData}
+        />
 
       {/* Dashboard Metrics */}
       <div className="px-4 py-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {/* Active Tables */}
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+          {/* Today Debit */}
+          <button 
+            onClick={() => router.push('/dashboard/cash-management')}
+            className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-red-500"
+          >
             <div className="flex items-center">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
+                <DollarSign className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div className="ml-3">
-                <p className="text-xs text-gray-600 dark:text-gray-400">Active Tables</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Today&apos;s Debit</p>
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  {dashboardData?.activeTables.count || 0}
+                  {dashboardData?.todayDebit?.formatted || '₹0'}
+                </p>
+                <p className="text-xs text-red-600 dark:text-red-400">
+                  {dashboardData?.todayDebit?.count || 0} transactions
                 </p>
               </div>
             </div>
-          </div>
+          </button>
 
           {/* Today's Orders */}
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+          <button 
+            onClick={() => router.push('/dashboard/orders')}
+            className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
             <div className="flex items-center">
               <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
                 <ShoppingCart className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -170,12 +179,18 @@ export default function DashboardPage() {
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
                   {dashboardData?.todayOrders.count || 0}
                 </p>
+                <p className="text-xs text-green-600 dark:text-green-400">
+                  {dashboardData?.todayOrders.pending || 0} pending
+                </p>
               </div>
             </div>
-          </div>
+          </button>
 
           {/* Today's Earnings */}
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+          <button 
+            onClick={() => router.push('/dashboard/reports')}
+            className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-orange-500"
+          >
             <div className="flex items-center">
               <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
                 <DollarSign className="w-5 h-5 text-orange-600 dark:text-orange-400" />
@@ -185,12 +200,18 @@ export default function DashboardPage() {
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
                   {dashboardData?.todayEarnings.formatted || '₹0'}
                 </p>
+                <p className="text-xs text-orange-600 dark:text-orange-400">
+                  View reports
+                </p>
               </div>
             </div>
-          </div>
+          </button>
 
           {/* Total Menu Items */}
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm">
+          <button 
+            onClick={() => router.push('/dashboard/menu')}
+            className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-purple-500"
+          >
             <div className="flex items-center">
               <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
                 <Utensils className="w-5 h-5 text-purple-600 dark:text-purple-400" />
@@ -198,11 +219,14 @@ export default function DashboardPage() {
               <div className="ml-3">
                 <p className="text-xs text-gray-600 dark:text-gray-400">Menu Items</p>
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
-                0
+                  {dashboardData?.totalMenuItems.count || 0}
+                </p>
+                <p className="text-xs text-purple-600 dark:text-purple-400">
+                  Manage menu
                 </p>
               </div>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Menu Items */}
@@ -240,6 +264,7 @@ export default function DashboardPage() {
           })}
         </div>
       </div>
-    </div>
+      </div>
+    </ProtectedRoute>
   )
 }

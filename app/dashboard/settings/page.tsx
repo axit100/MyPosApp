@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import DashboardHeader from '@/components/DashboardHeader'
+import ProtectedRoute from '@/components/ProtectedRoute'
 import {
   Save,
   Building,
@@ -150,13 +151,14 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-      <DashboardHeader
-        title="Settings"
-        subtitle="Configure restaurant settings"
-        showBackButton={true}
-        onRefresh={fetchSettings}
-      />
+    <ProtectedRoute allowedRoles={['admin']}>
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
+        <DashboardHeader
+          title="Settings"
+          subtitle="Configure restaurant settings"
+          showBackButton={true}
+          onRefresh={fetchSettings}
+        />
 
       <div className="px-4 py-4 space-y-4">
         {/* Success/Error Messages */}
@@ -348,7 +350,8 @@ export default function SettingsPage() {
           </>
         )}
       </div>
-    </div>
+      </div>
+    </ProtectedRoute>
   )
 }
 
