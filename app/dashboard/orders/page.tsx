@@ -13,7 +13,7 @@ import OrderEditModal from "@/components/orders/OrderEditModal";
 import DeleteConfirmModal from "@/components/orders/DeleteConfirmModal";
 
 type Item = {
-  id: number;
+  id: string;
   name: string;
   price: number;
   icon?: string;
@@ -33,7 +33,8 @@ type Order = {
   status: "Paid" | "Pending" | "Waiting";
   orderTime: Date;
   notes?: string;
-  items: Array<{ item: Item; quantity: number }>;
+  // Align with OrderEditModal expected shape
+  items: Array<{ item?: Item; name?: string; quantity: number; price?: number }>;
 };
 
 export default function OrdersPage() {

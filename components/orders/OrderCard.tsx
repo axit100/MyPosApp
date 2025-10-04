@@ -3,7 +3,7 @@ import { Edit, Trash2, Printer } from "lucide-react";
 import { format } from "date-fns";
 
 type Item = {
-  id: number;
+  id: string;
   name: string;
   price: number;
   icon?: string;
@@ -17,7 +17,7 @@ type Order = {
   finalAmount: number;
   status: "Paid" | "Pending" | "Waiting";
   orderTime: Date;
-  items?: Array<{ item: Item; quantity: number }>;
+  items?: Array<{ item?: Item; name?: string; quantity: number; price?: number }>;
 };
 
 type Props = {

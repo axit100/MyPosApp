@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import jwt from 'jsonwebtoken'
-import User from '@/models/User'
+import User, { IUser } from '@/models/User'
 import connectDB from '@/lib/mongodb'
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB()
     
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const token = cookieStore.get('auth-token')?.value
     
     if (!token) {
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     // Get user from database
     const user = await User.findById(decoded.userId)
       .select('+isSuper')
-      .lean()
+      .lean<IUser | null>()
     
     if (!user) {
       return NextResponse.json({

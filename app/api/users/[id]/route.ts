@@ -5,12 +5,13 @@ import User from '@/models/User'
 // GET - Get single user
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB()
     
-    const user = await User.findById(params.id, '-password')
+    const { id } = await params
+    const user = await User.findById(id, '-password')
     
     if (!user) {
       return NextResponse.json(
@@ -35,12 +36,13 @@ export async function GET(
 // PUT - Update user
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB()
     
     const updates = await request.json()
+    const { id } = await params
     
     // Remove fields that shouldn't be updated via API
     delete updates.isSuper
@@ -48,7 +50,7 @@ export async function PUT(
     delete updates._id
     
     // Find user to check if they exist and get current data
-    const existingUser = await User.findById(params.id).select('+isSuper')
+  const existingUser = await User.findById(id).select('+isSuper')
     
     if (!existingUser) {
       return NextResponse.json(
@@ -61,7 +63,7 @@ export async function PUT(
     if (updates.email && updates.email !== existingUser.email) {
       const emailExists = await User.findOne({ 
         email: updates.email, 
-        _id: { $ne: params.id } 
+        _id: { $ne: id } 
       })
       if (emailExists) {
         return NextResponse.json(
@@ -73,7 +75,7 @@ export async function PUT(
     
     // Update user
     const user = await User.findByIdAndUpdate(
-      params.id,
+      id,
       { $set: updates },
       { new: true, runValidators: true }
     ).select('-password')
@@ -114,13 +116,14 @@ export async function PUT(
 // DELETE - Delete user (with super admin protection)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB()
     
+    const { id } = await params
     // Find user and include isSuper field for checking
-    const user = await User.findById(params.id).select('+isSuper')
+    const user = await User.findById(id).select('+isSuper')
     
     if (!user) {
       return NextResponse.json(
@@ -142,7 +145,7 @@ export async function DELETE(
     }
     
     // Delete the user
-    await User.findByIdAndDelete(params.id)
+  await User.findByIdAndDelete(id)
     
     return NextResponse.json({
       success: true,
