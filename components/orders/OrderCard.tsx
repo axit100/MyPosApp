@@ -1,5 +1,5 @@
 "use client";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, Printer } from "lucide-react";
 import { format } from "date-fns";
 
 type Item = {
@@ -27,12 +27,30 @@ type Props = {
 };
 
 export default function OrderCard({ order, onEdit, onDelete }: Props) {
-  const statusClass =
-    order.status === "Paid"
-      ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-      : order.status === "Pending"
-      ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
-      : "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
+  let statusClass = "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300";
+  if (order.status === "Paid") {
+    statusClass = "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300";
+  } else if (order.status === "Pending") {
+    statusClass = "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300";
+  }
+  const sendTestPrint = async () => {
+    try {
+      const res = await fetch('/api/print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          printerIp: process.env.NEXT_PUBLIC_PRINTER_IP || '192.168.0.100',
+          printerPort: Number(process.env.NEXT_PUBLIC_PRINTER_PORT || 9100)
+        })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Print failed');
+      alert('Test receipt sent to printer.');
+    } catch (e: any) {
+      alert('Print error: ' + (e.message || 'Unknown error'));
+    }
+  };
+  // statusClass defined above via if/else
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-4 flex flex-col gap-3 hover:shadow-lg transition">
@@ -69,6 +87,13 @@ export default function OrderCard({ order, onEdit, onDelete }: Props) {
           className="flex-1 px-3 py-2 bg-blue-500 text-white rounded-lg flex items-center justify-center gap-1 hover:bg-blue-600"
         >
           <Edit className="w-4 h-4" /> Edit
+        </button>
+        <button
+          onClick={sendTestPrint}
+          className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg flex items-center justify-center gap-1 hover:bg-green-700"
+          title="Print test receipt"
+        >
+          <Printer className="w-4 h-4" /> Print
         </button>
         <button
           onClick={onDelete}

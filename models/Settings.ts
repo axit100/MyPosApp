@@ -19,6 +19,12 @@ export interface IRestaurantSettings extends Document {
     kitchenPrinter: boolean
     billPrinter: boolean
     printerIP?: string
+    printerPort?: number
+    bluetoothEnabled?: boolean
+    bluetoothName?: string
+    bluetoothId?: string
+    bleServiceUUID?: string
+    bleCharacteristicUUID?: string
   }
   orderSettings: {
     autoAcceptOrders: boolean
@@ -53,7 +59,7 @@ const RestaurantSettingsSchema = new Schema<IRestaurantSettings>({
     type: String,
     required: [true, 'Phone number is required'],
     trim: true,
-    match: [/^[0-9]{10}$/, 'Please enter a valid 10-digit phone number']
+    match: [/^\d{10}$/, 'Please enter a valid 10-digit phone number']
   },
   email: {
     type: String,
@@ -66,7 +72,7 @@ const RestaurantSettingsSchema = new Schema<IRestaurantSettings>({
     type: String,
     trim: true,
     uppercase: true,
-    match: [/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Please enter a valid GST number']
+    match: [/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/, 'Please enter a valid GST number']
   },
   currency: {
     type: String,
@@ -93,12 +99,12 @@ const RestaurantSettingsSchema = new Schema<IRestaurantSettings>({
     open: {
       type: String,
       default: '09:00',
-      match: [/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter time in HH:MM format']
+      match: [/^([0-1]?\d|2[0-3]):[0-5]\d$/, 'Please enter time in HH:MM format']
     },
     close: {
       type: String,
       default: '23:00',
-      match: [/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter time in HH:MM format']
+      match: [/^([0-1]?\d|2[0-3]):[0-5]\d$/, 'Please enter time in HH:MM format']
     },
     isOpen24Hours: {
       type: Boolean,
@@ -115,6 +121,31 @@ const RestaurantSettingsSchema = new Schema<IRestaurantSettings>({
       default: true
     },
     printerIP: {
+      type: String,
+      trim: true
+    },
+    printerPort: {
+      type: Number,
+      default: 9100,
+      min: [1, 'Port must be positive']
+    },
+    bluetoothEnabled: {
+      type: Boolean,
+      default: false
+    },
+    bluetoothName: {
+      type: String,
+      trim: true
+    },
+    bluetoothId: {
+      type: String,
+      trim: true
+    },
+    bleServiceUUID: {
+      type: String,
+      trim: true
+    },
+    bleCharacteristicUUID: {
       type: String,
       trim: true
     }

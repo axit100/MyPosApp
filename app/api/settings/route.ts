@@ -27,7 +27,13 @@ export async function GET() {
         },
         printerSettings: {
           kitchenPrinter: true,
-          billPrinter: true
+          billPrinter: true,
+          printerPort: 9100,
+          bluetoothEnabled: false,
+          bluetoothName: '',
+          bluetoothId: '',
+          bleServiceUUID: '',
+          bleCharacteristicUUID: ''
         },
         orderSettings: {
           autoAcceptOrders: true,
