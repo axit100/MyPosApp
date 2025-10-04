@@ -97,11 +97,11 @@ export default function DashboardPage() {
       color: 'bg-green-500'
     },
     {
-      title: 'Quick Order',
-      description: 'Quick Add Your Items and Generate Bill',
-      icon: ShoppingCart,
-      route: '/dashboard/quick-order',
-      color: 'bg-green-500'
+      title: 'Cash Management',
+      description: 'Manage cash flow and transactions',
+      icon: DollarSign,
+      route: '/dashboard/cash-management',
+      color: 'bg-blue-500'
     },
     {
       title: 'Menu',
